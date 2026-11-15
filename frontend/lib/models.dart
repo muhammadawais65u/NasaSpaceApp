@@ -186,7 +186,8 @@ class GameConfig {
         options: options,
       ));
     }
-    return GameConfig(missions: missions, dailyDrain: _intMap(j['daily_drain']));
+    return GameConfig(
+        missions: missions, dailyDrain: _intMap(j['daily_drain']));
   }
 }
 
@@ -253,7 +254,9 @@ class SpaceWeather {
     return SpaceWeather(
       dataStatus: (j['data_status'] ?? 'unavailable').toString(),
       retrievedAt: DateTime.tryParse((j['retrieved_at'] ?? '').toString()),
-      events: [for (final e in _list(j['events'])) SpaceEvent.fromJson(_map(e))],
+      events: [
+        for (final e in _list(j['events'])) SpaceEvent.fromJson(_map(e))
+      ],
       alertLevel: (scenario['alert_level'] ?? 'calm').toString(),
       basisEventId: scenario['basis_event_id']?.toString(),
     );
@@ -287,7 +290,10 @@ class Study {
 }
 
 class ResearchResult {
-  ResearchResult({required this.dataStatus, required this.totalMatches, required this.studies});
+  ResearchResult(
+      {required this.dataStatus,
+      required this.totalMatches,
+      required this.studies});
 
   final String dataStatus;
   final int? totalMatches;
