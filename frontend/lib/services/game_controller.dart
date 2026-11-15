@@ -74,6 +74,12 @@ class GameController extends ChangeNotifier {
       errorMessage = e.message;
       phase = AppPhase.error;
       notifyListeners();
+    } catch (_) {
+      // Anything unexpected (timeouts, socket errors) must not leave the
+      // splash stuck on "Contacting Mission Control" forever.
+      errorMessage = 'Cannot reach Mission Control.';
+      phase = AppPhase.error;
+      notifyListeners();
     }
   }
 

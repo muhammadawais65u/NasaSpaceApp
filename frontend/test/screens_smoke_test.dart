@@ -146,10 +146,10 @@ void main() {
         final info = game.missionInfo(3)!;
         final option = info.options.last;
         await show(tester, size, game, OutcomeScreen(info: info, option: option, result: fakeResult()));
-        expect(find.text('Next Mission'), findsOneWidget);
+        expect(find.text('Next Day'), findsOneWidget);
         await show(tester, size, game,
             OutcomeScreen(info: info, option: option, result: fakeResult(result: 'failed')));
-        expect(find.text('See Results'), findsOneWidget);
+        expect(find.text('Final Report'), findsOneWidget);
         await show(tester, size, game, const EndScreen(won: true, score: 126));
         expect(find.text('Congratulations!'), findsOneWidget);
         await show(tester, size, game, const EndScreen(won: false, score: 40));

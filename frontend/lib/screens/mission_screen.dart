@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../game/mission_days.dart';
 import '../models.dart';
 import '../services/game_controller.dart';
 import '../widgets/ui.dart';
+import 'day_briefing_screen.dart';
+import 'final_ending_screen.dart';
 import 'hub_screen.dart';
 
 /// Mission briefing first, then the three choices with their trade-offs.
@@ -287,21 +290,22 @@ class OutcomeScreen extends StatelessWidget {
     final mission = result.mission;
     final ended = outcome.result != null;
     final failed = outcome.result == 'failed';
+    final theme = themeForDay(info.day);
     return SpaceBackground(
       maxWidth: 820,
       image: 'assets/images/mission_${info.day}.jpg',
       child: Column(
         children: [
           TitleBanner(
-            failed ? 'Oh no!' : 'Mission ${info.day} Complete!',
-            color: failed ? GameColors.red : GameColors.blue,
+            failed ? 'Oh no!' : 'Day ${info.day} Complete!',
+            color: failed ? GameColors.red : theme.accent,
           ),
           const SizedBox(height: 10),
           Expanded(
             child: Center(
               child: SingleChildScrollView(
                 child: GlassPanel(
-                  borderColor: failed ? GameColors.red : null,
+                  borderColor: failed ? GameColors.red : theme.accent,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -314,16 +318,35 @@ class OutcomeScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text('You chose: ${option.label}',
-                                    style: const TextStyle(
-                                        color: GameColors.yellow, fontSize: 16, fontWeight: FontWeight.w800)),
+                                if (!failed)
+                                  Text(theme.ending,
+                                      style: const TextStyle(
+                                          color: GameColors.yellow, fontSize: 16, fontWeight: FontWeight.w800)),
                                 const SizedBox(height: 4),
                                 Text(outcome.feedback,
                                     style: const TextStyle(
                                         color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700, height: 1.3)),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Astronaut status: ${failed ? 'Emergency' : 'Safe'} · Objectives completed: ${info.objectives.length}/${info.objectives.length}',
+                                  style: TextStyle(
+                                      color: failed ? GameColors.red : GameColors.green,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800),
+                                ),
                               ],
                             ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          for (var i = 0; i < info.objectives.length; i++)
+                            _ObjectiveDone(objective: info.objectives[i], icon: theme.kindOf(i).icon),
                         ],
                       ),
                       const SizedBox(height: 10),
@@ -364,20 +387,56 @@ class OutcomeScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           GameButton(
-            label: ended ? 'See Results' : 'Next Mission',
+            label: ended ? 'Final Report' : 'Next Day',
             icon: ended ? Icons.emoji_events : Icons.arrow_forward,
             big: true,
             onPressed: () {
               if (!ended) {
-                Navigator.of(context).pop();
+                final next = game.missionInfo(mission.currentDay);
+                if (next != null) {
+                  Navigator.of(context).pushReplacement(
+                      MaterialPageRoute<void>(builder: (_) => DayBriefingScreen(info: next)));
+                } else {
+                  Navigator.of(context).pop();
+                }
                 return;
               }
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute<void>(builder: (_) => EndScreen(won: !failed, score: mission.score)),
+                MaterialPageRoute<void>(builder: (_) => FinalEndingScreen(won: !failed, score: mission.score)),
                 (route) => route.isFirst,
               );
             },
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One finished objective on the outcome screen.
+class _ObjectiveDone extends StatelessWidget {
+  const _ObjectiveDone({required this.objective, required this.icon});
+
+  final String objective;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: GameColors.green.withAlpha(30),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: GameColors.green, width: 1.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.check_circle, color: GameColors.green, size: 15),
+          const SizedBox(width: 5),
+          Icon(icon, color: Colors.white, size: 14),
+          const SizedBox(width: 4),
+          Text(objective, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12.5)),
         ],
       ),
     );

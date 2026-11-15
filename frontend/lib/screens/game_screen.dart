@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../game/lunar_scene.dart';
+import '../game/mission_days.dart';
 import '../models.dart';
 import '../services/game_controller.dart';
 import '../widgets/ui.dart';
@@ -75,6 +76,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
   final Map<String, int> _spent = {}; // resources used by finished builds
 
   List<String> get _objectives => widget.info.objectives;
+  DayTheme get _theme => themeForDay(widget.info.day);
+  InteractKind get _currentKind =>
+      _final || _step >= _objectives.length ? InteractKind.build : _theme.kindOf(_step);
 
   String _toast = '';
   double _toastLeft = 0;
@@ -97,6 +101,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           ),
           _objectives[i],
           _padColors[i % _padColors.length],
+          kind: _theme.kindOf(i),
         ),
       const BuildPad(Offset(0, -24), 'Colony core', Color(0xFFFFB347)),
     ];
@@ -237,7 +242,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       _say(
         isFinal
             ? 'Building: Colony core - ${widget.info.options.first.label}'
-            : 'Building: ${_objectives[_step]}',
+            : '${_currentKind.verb}: ${_objectives[_step]}',
         4,
       );
     });
@@ -375,6 +380,8 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   buildProgress: _buildT,
                   visibleCount: _step >= n ? n + 1 : _step + 1,
                   builtCount: _step,
+                  day: widget.info.day,
+                  suitAccent: suitAccentFor(game.astronaut),
                 ),
               ),
               SafeArea(
@@ -444,7 +451,15 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
             ],
           ),
           const Spacer(),
-          _resourcePanel(levels, preview),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _resourcePanel(levels, preview),
+              const SizedBox(height: 8),
+              _MiniMap(pos: _pos, pads: _pads, step: _step, objectives: _objectives.length),
+            ],
+          ),
         ],
       ),
     );
@@ -462,15 +477,26 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
         children: [
           Text('DAY ${info.day} · ${info.title.toUpperCase()}',
               style: const TextStyle(color: Color(0xFFFFB347), fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1)),
+          const SizedBox(height: 2),
+          Text(_theme.tagline.toUpperCase(),
+              style: const TextStyle(color: GameColors.yellow, fontSize: 9.5, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
           const SizedBox(height: 4),
           Text(info.scenario, style: const TextStyle(color: GameColors.textDim, fontSize: 11.5, height: 1.3)),
           const SizedBox(height: 8),
           Text(finalStage ? 'COLONY CORE' : 'OBJECTIVE ${_step + 1} OF $n',
               style: const TextStyle(color: GameColors.yellow, fontSize: 10.5, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
           const SizedBox(height: 2),
-          Text(
-            finalStage ? 'Build the colony core to report to Mission Control.' : _objectives[_step],
-            style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w800, height: 1.25),
+          Row(
+            children: [
+              Icon(_currentKind.icon, color: GameColors.yellow, size: 18),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  finalStage ? 'Build the colony core to report to Mission Control.' : _objectives[_step],
+                  style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w800, height: 1.25),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 6),
           Row(
@@ -625,10 +651,12 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                 ),
               ),
               const SizedBox(height: 4),
-              Text(_phase == _Phase.busy ? 'Reporting to Mission Control...' : 'Building...',
-                  style: const TextStyle(color: GameColors.textDim, fontSize: 12, fontWeight: FontWeight.w700)),
+              Text(
+                _phase == _Phase.busy ? 'Reporting to Mission Control...' : _currentKind.doing,
+                style: const TextStyle(color: GameColors.textDim, fontSize: 12, fontWeight: FontWeight.w700),
+              ),
             ] else
-              GameButton(label: 'Build (E)', icon: Icons.construction, onPressed: _build),
+              GameButton(label: '${_currentKind.verb} (E)', icon: _currentKind.icon, onPressed: _build),
           ],
         ),
       ),
@@ -659,7 +687,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
           ),
           const SizedBox(width: 12),
           if (exploring) ...[
-            _roundButton(label: 'E', size: 64, icon: null, held: false, onDown: _build),
+            _roundButton(label: _currentKind.verb.toUpperCase(), size: 64, icon: _currentKind.icon, held: false, onDown: _build),
             const SizedBox(width: 10),
             _roundButton(
               label: 'JUMP',
@@ -707,6 +735,103 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       ),
     );
   }
+}
+
+/// Small circular minimap: lander, objective pads and the astronaut.
+class _MiniMap extends StatelessWidget {
+  const _MiniMap({required this.pos, required this.pads, required this.step, required this.objectives});
+
+  final Offset pos;
+  final List<BuildPad> pads;
+  final int step;
+  final int objectives;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 96,
+      height: 96,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0xCC0A1238),
+        border: Border.all(color: GameColors.panelBorder, width: 2),
+      ),
+      child: CustomPaint(painter: _MiniMapPainter(pos: pos, pads: pads, step: step, objectives: objectives)),
+    );
+  }
+}
+
+class _MiniMapPainter extends CustomPainter {
+  const _MiniMapPainter({required this.pos, required this.pads, required this.step, required this.objectives});
+
+  final Offset pos;
+  final List<BuildPad> pads;
+  final int step;
+  final int objectives;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final scale = (size.width / 2 - 6) / LunarScenePainter.worldRadius;
+    Offset w(Offset p) => c + Offset(p.dx, -p.dy) * scale;
+
+    // Outer rim and faint grid.
+    canvas.drawCircle(c, size.width / 2 - 4, Paint()..color = const Color(0x55161F4E));
+    canvas.drawCircle(
+      c,
+      size.width / 2 - 4,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = const Color(0x555CC8FF),
+    );
+
+    // Lander at the centre.
+    canvas.drawCircle(w(LunarScenePainter.lander), 3, Paint()..color = Colors.white);
+    // Landmarks.
+    canvas.drawCircle(w(LunarScenePainter.baseDome), 2.5, Paint()..color = const Color(0xFFB9C6F2));
+    canvas.drawCircle(w(LunarScenePainter.antenna), 2.5, Paint()..color = const Color(0xFFFFB347));
+
+    for (var i = 0; i < pads.length; i++) {
+      final isCore = i == pads.length - 1;
+      final current = isCore ? step >= objectives : i == step;
+      final done = !isCore && i < step;
+      canvas.drawCircle(
+        w(pads[i].pos),
+        current ? 4 : 2.6,
+        Paint()
+          ..color = done
+              ? const Color(0xFF7BE0A0)
+              : isCore
+                  ? const Color(0xFFFFB347)
+                  : pads[i].color.withAlpha(current ? 255 : 110),
+      );
+      if (current) {
+        canvas.drawCircle(
+          w(pads[i].pos),
+          7,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5
+            ..color = pads[i].color,
+        );
+      }
+    }
+
+    // Astronaut, cyan.
+    canvas.drawCircle(w(pos), 3, Paint()..color = const Color(0xFF45E6FF));
+    canvas.drawCircle(
+      w(pos),
+      5.5,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = const Color(0xFF45E6FF),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _MiniMapPainter oldDelegate) => true;
 }
 
 /// Virtual joystick for touch screens (bottom-left).

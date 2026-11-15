@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'screens/home_screen.dart';
+import 'screens/splash_screen.dart';
 import 'services/game_controller.dart';
 import 'widgets/ui.dart';
 
@@ -42,7 +42,7 @@ class _JuniorAstronautAppState extends State<JuniorAstronautApp> {
     return GameScope(
       controller: _controller,
       child: MaterialApp(
-        title: 'Junior Astronaut Mission Trainer',
+        title: 'Junior Astronaut - Moon Survival Adventure',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           brightness: Brightness.dark,
@@ -50,71 +50,8 @@ class _JuniorAstronautAppState extends State<JuniorAstronautApp> {
               seedColor: GameColors.blue, brightness: Brightness.dark),
           useMaterial3: true,
         ),
-        home: const AppRoot(),
+        home: const SplashScreen(),
       ),
     );
-  }
-}
-
-/// Chooses the first screen from the app state.
-class AppRoot extends StatelessWidget {
-  const AppRoot({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final game = GameScope.of(context);
-    switch (game.phase) {
-      case AppPhase.ready:
-        return const HomeScreen();
-      case AppPhase.error:
-        return SpaceBackground(
-          maxWidth: 520,
-          child: Center(
-            child: GlassPanel(
-              borderColor: GameColors.red,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.wifi_off_rounded,
-                      color: GameColors.yellow, size: 48),
-                  const SizedBox(height: 10),
-                  Text(
-                    game.errorMessage ?? 'Something went wrong.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 16),
-                  GameButton(
-                      label: 'Try Again',
-                      icon: Icons.refresh,
-                      onPressed: game.start),
-                ],
-              ),
-            ),
-          ),
-        );
-      case AppPhase.loading:
-        return const SpaceBackground(
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(color: GameColors.yellow),
-                SizedBox(height: 16),
-                Text(
-                  'Mission Control is getting ready...',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700),
-                ),
-              ],
-            ),
-          ),
-        );
-    }
   }
 }

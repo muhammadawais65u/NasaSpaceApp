@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../widgets/ui.dart';
+import 'mission_days.dart';
 
 /// One speck of suit dust kicked up while walking.
 class DustParticle {
@@ -16,13 +17,16 @@ class DustParticle {
   static const double maxLife = 0.7;
 }
 
-/// A glowing pad on the Moon where one decision option can be built.
+/// A glowing pad on the Moon where one objective is completed. The [kind]
+/// decides its floating icon and the structure that grows out of it.
 class BuildPad {
-  const BuildPad(this.pos, this.label, this.color);
+  const BuildPad(this.pos, this.label, this.color,
+      {this.kind = InteractKind.build});
 
   final Offset pos;
   final String label;
   final Color color;
+  final InteractKind kind;
 }
 
 /// A point on the ground plane (x, z) with a size.
@@ -121,6 +125,8 @@ class LunarScenePainter extends CustomPainter {
     this.buildProgress = 0,
     this.visibleCount = 99,
     this.builtCount = 0,
+    this.day = 1,
+    this.suitAccent = const Color(0xFF45E6FF),
   });
 
   final LunarScenery scenery;
@@ -152,6 +158,12 @@ class LunarScenePainter extends CustomPainter {
   /// those are finished habitats that stay on the Moon.
   final int visibleCount;
   final int builtCount;
+
+  /// Mission day: colours the ambience and adds day-specific scenery props.
+  final int day;
+
+  /// The astronaut's suit accent colour from the character selection.
+  final Color suitAccent;
 
   static const double worldRadius = 90;
   static const Offset lander = Offset.zero;
@@ -251,13 +263,172 @@ class LunarScenePainter extends CustomPainter {
     _drawSky(canvas, size, horizonY);
     _drawGround(canvas, size, horizonY);
     _drawWorld(canvas, size, horizonY);
+    _drawDayExtras(canvas);
     _drawLandmarks(canvas);
     _drawPads(canvas);
     _drawBeacon(canvas);
     _drawLander(canvas);
     _drawParticles(canvas);
     _drawAstronaut(canvas);
+    _drawAmbience(canvas, size);
     _drawEdgeCue(canvas, size);
+  }
+
+  /// A soft colour wash over the whole frame: solar storms glow violet,
+  /// the emergency day flashes red, the ice day feels colder.
+  void _drawAmbience(Canvas canvas, Size size) {
+    final color = switch (day) {
+      3 => const Color(0xFF8E5BFF),
+      5 => const Color(0xFFFF4D5A),
+      4 => const Color(0xFF42A5F5),
+      6 => const Color(0xFF66BB6A),
+      _ => const Color(0x00000000),
+    };
+    if (color.a == 0) return;
+    final pulse = day == 5 ? (math.sin(time * 3) + 1) / 2 : 0.5;
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [color.withAlpha((10 + 18 * pulse).round()), color.withAlpha(0)],
+        ).createShader(Offset.zero & size),
+    );
+  }
+
+  /// Extra scenery that makes every day look different.
+  void _drawDayExtras(Canvas canvas) {
+    switch (day) {
+      case 2:
+        // Solar panel field: rows of blue panels tilted at the Sun.
+        for (var i = 0; i < 4; i++) {
+          _drawSolarPanel(canvas, Offset(18 + i * 7, -34 - (i.isOdd ? 3 : 0)));
+        }
+        break;
+      case 4:
+        // Blue ice crystals sparkling in the dark.
+        for (var i = 0; i < 6; i++) {
+          _drawCrystal(canvas, Offset(12 + i * 11, -14 - (i % 3) * 9));
+        }
+        break;
+      case 5:
+        // Meteorite impact site: scorched crater with drifting smoke.
+        _drawImpactSite(canvas);
+        break;
+      case 6:
+        // Greenhouse dome glowing green next to the base.
+        _drawGreenhouse(canvas);
+        break;
+      case 7:
+        // Rare glowing mineral veins near the science station.
+        for (var i = 0; i < 3; i++) {
+          _drawCrystal(canvas, Offset(26 + i * 6, 18 + (i % 2) * 7));
+        }
+        break;
+    }
+  }
+
+  void _drawSolarPanel(Canvas canvas, Offset pos) {
+    final y = scenery.terrainAt(pos.dx, pos.dy);
+    final p = _proj(pos.dx, y + 1.2, pos.dy);
+    final base = _proj(pos.dx, y, pos.dy);
+    if (p == null || base == null) return;
+    final s = _focal / _depth(pos.dx, 0, pos.dy);
+    canvas.drawLine(base, p, Paint()..color = const Color(0xFF7E8298)..strokeWidth = math.max(1, s * 0.06));
+    final w = 3.0 * s, h = 1.5 * s;
+    final r = RRect.fromRectAndRadius(Rect.fromCenter(center: p, width: w, height: h), Radius.circular(0.15 * s));
+    canvas.drawRRect(r, Paint()..color = const Color(0xFF1C4FA0));
+    canvas.drawRRect(
+      r,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(1, s * 0.05)
+        ..color = const Color(0xFF5CC8FF),
+    );
+    for (var i = 1; i < 3; i++) {
+      canvas.drawLine(Offset(p.dx - w / 2 + w * i / 3, p.dy - h / 2), Offset(p.dx - w / 2 + w * i / 3, p.dy + h / 2),
+          Paint()..color = const Color(0x665CC8FF)..strokeWidth = 1);
+    }
+  }
+
+  void _drawCrystal(Canvas canvas, Offset pos) {
+    final y = scenery.terrainAt(pos.dx, pos.dy);
+    final base = _proj(pos.dx, y, pos.dy);
+    final top = _proj(pos.dx, y + 1.6, pos.dy);
+    if (base == null || top == null) return;
+    final s = _focal / _depth(pos.dx, 0, pos.dy);
+    final w = 0.5 * s;
+    final glint = (math.sin(time * 2.5 + pos.dx) + 1) / 2;
+    final shard = Path()
+      ..moveTo(base.dx - w, base.dy)
+      ..lineTo(base.dx + w, base.dy)
+      ..lineTo(top.dx + w * 0.3, top.dy + w)
+      ..lineTo(top.dx, top.dy)
+      ..lineTo(top.dx - w * 0.3, top.dy + w)
+      ..close();
+    canvas.drawPath(shard, Paint()..color = Color.fromRGBO(69, 230, 255, 0.35 + glint * 0.4));
+    canvas.drawPath(
+      shard,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(1, s * 0.04)
+        ..color = const Color(0xFF45E6FF),
+    );
+  }
+
+  void _drawImpactSite(Canvas canvas) {
+    const pos = Offset(16, 12);
+    final y = scenery.terrainAt(pos.dx, pos.dy);
+    final base = _proj(pos.dx, y, pos.dy);
+    if (base == null) return;
+    final s = _focal / _depth(pos.dx, 0, pos.dy);
+    final ring = _projectGroundRing(pos, 4.5, 12);
+    if (ring != null) {
+      canvas.drawPath(ring, Paint()..color = const Color(0xBB2A1A1E));
+      canvas.drawPath(
+        ring,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3
+          ..color = const Color(0xFFFF4D5A),
+      );
+    }
+    // Smoke columns rising from the wreck.
+    for (var i = 0; i < 3; i++) {
+      final drift = math.sin(time * 1.4 + i * 2.1) * 0.4;
+      final p = _proj(pos.dx - 1 + i, y + 1.5 + i * 1.6, pos.dy + drift);
+      if (p == null) continue;
+      canvas.drawCircle(p, s * (0.5 + i * 0.35), Paint()..color = Color.fromRGBO(90, 90, 110, 0.4 - i * 0.1));
+    }
+    // Blinking emergency beacon.
+    final blink = (math.sin(time * 6) + 1) / 2;
+    canvas.drawCircle(base + Offset(0, -1.8 * s), math.max(2, s * 0.1) * (0.5 + blink),
+        Paint()..color = const Color(0xFFFF4D5A));
+  }
+
+  void _drawGreenhouse(Canvas canvas) {
+    const pos = Offset(-42, -18);
+    final y = scenery.terrainAt(pos.dx, pos.dy);
+    final base = _proj(pos.dx, y, pos.dy);
+    if (base == null) return;
+    final s = _focal / _depth(pos.dx, 0, pos.dy);
+    final dome = Rect.fromCenter(center: base, width: 6 * s, height: 2 * 2.6 * s);
+    // Green plants inside.
+    for (var i = 0; i < 3; i++) {
+      final gx = base.dx - 1.8 * s + i * 1.8 * s;
+      canvas.drawOval(Rect.fromCenter(center: Offset(gx, base.dy - 0.4 * s), width: 1.1 * s, height: 0.8 * s),
+          Paint()..color = const Color(0xFF66BB6A));
+    }
+    canvas.drawArc(dome, math.pi, math.pi, true, Paint()..color = const Color(0x4466BB6A));
+    canvas.drawArc(
+      dome,
+      math.pi,
+      math.pi,
+      true,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(1.5, s * 0.06)
+        ..color = const Color(0xFF9BE37A),
+    );
   }
 
   void _drawSky(Canvas canvas, Size size, double horizonY) {
@@ -638,44 +809,14 @@ class LunarScenePainter extends CustomPainter {
 
       double labelHeight = 6.8;
       if (building) {
-        // A small habitat rising out of the pad.
+        // The structure that belongs to this objective grows out of the pad.
         final k = done ? 1.0 : buildProgress.clamp(0.0, 1.0);
-        final w = 3.4 * s;
-        final hBody = 2.0 * s * k;
-        final body = Rect.fromLTWH(base.dx - w / 2, base.dy - hBody, w, hBody);
-        canvas.drawRect(body, Paint()..color = const Color(0xFFD8DAE4));
-        canvas.drawRect(
-          body,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = math.max(1.5, s * 0.05)
-            ..color = pad.color,
-        );
-        if (k > 0.5) {
-          final dk = (k - 0.5) * 2;
-          final dome = Rect.fromCenter(
-            center: Offset(base.dx, base.dy - hBody),
-            width: w,
-            height: 2 * 1.5 * s * dk,
-          );
-          canvas.drawArc(dome, math.pi, math.pi, true,
-              Paint()..color = const Color(0xFFF2F4FC));
-          canvas.drawArc(
-            dome,
-            math.pi,
-            math.pi,
-            true,
-            Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = math.max(1.5, s * 0.05)
-              ..color = pad.color,
-          );
-        }
-        // Welding sparks.
-        final spark = done ? 0.0 : (math.sin(time * 40) + 1) / 2;
+        _drawBuiltThing(canvas, base, s, pad, k);
+        // Welding sparks while it is still going up.
         if (!done) {
+          final spark = (math.sin(time * 40) + 1) / 2;
           canvas.drawCircle(
-            Offset(base.dx + w * 0.55, base.dy - hBody),
+            Offset(base.dx + 1.9 * s, base.dy - 2 * s * k),
             math.max(2, s * 0.12) * (0.6 + spark),
             Paint()..color = const Color(0xFFFFD35E),
           );
@@ -705,6 +846,26 @@ class LunarScenePainter extends CustomPainter {
               ).createShader(Rect.fromLTWH(
                   base.dx - w, top.dy, w * 2, (base.dy - top.dy).abs() + 1)),
           );
+          // Floating action icon above the beam: collect, scan, repair...
+          if (z < 60) {
+            final iconPaint = TextPainter(
+              text: TextSpan(
+                text: String.fromCharCode(pad.kind.icon.codePoint),
+                style: TextStyle(
+                  fontFamily: pad.kind.icon.fontFamily,
+                  package: pad.kind.icon.fontPackage,
+                  color: active ? pad.color : pad.color.withAlpha(180),
+                  fontSize: (s * 0.8).clamp(15.0, 30.0),
+                ),
+              ),
+              textDirection: TextDirection.ltr,
+            )..layout();
+            final bob = math.sin(time * 2.4) * 3;
+            iconPaint.paint(
+              canvas,
+              Offset(top.dx - iconPaint.width / 2, top.dy - iconPaint.height - 4 + bob),
+            );
+          }
         }
       }
 
@@ -739,6 +900,83 @@ class LunarScenePainter extends CustomPainter {
         );
         tp.paint(canvas, Offset(rect.left + 8, rect.top + 4));
       }
+    }
+  }
+
+  /// The structure that grows out of a pad, drawn to match the objective's
+  /// interaction kind: a habitat, a mast, a panel, a crate, a radar...
+  void _drawBuiltThing(Canvas canvas, Offset base, double s, BuildPad pad, double k) {
+    final outline = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.5, s * 0.05)
+      ..color = pad.color;
+    final w = 3.4 * s;
+    final hBody = 2.0 * s * k;
+    final body = Rect.fromLTWH(base.dx - w / 2, base.dy - hBody, w, hBody);
+    canvas.drawRect(body, Paint()..color = const Color(0xFFD8DAE4));
+    canvas.drawRect(body, outline);
+    switch (pad.kind) {
+      case InteractKind.build:
+        // Dome roof appears during the second half of the build.
+        if (k > 0.5) {
+          final dk = (k - 0.5) * 2;
+          final dome = Rect.fromCenter(center: Offset(base.dx, base.dy - hBody), width: w, height: 2 * 1.5 * s * dk);
+          canvas.drawArc(dome, math.pi, math.pi, true, Paint()..color = const Color(0xFFF2F4FC));
+          canvas.drawArc(dome, math.pi, math.pi, true, outline);
+        }
+        break;
+      case InteractKind.install:
+        // Mast with a small dish on top.
+        final top = Offset(base.dx, base.dy - hBody - 1.6 * s * k);
+        canvas.drawLine(Offset(base.dx, base.dy - hBody), top, outline..strokeWidth = math.max(1.5, s * 0.07));
+        canvas.drawCircle(top, 0.3 * s * k, outline);
+        break;
+      case InteractKind.activate:
+        // Switch box with a glowing power light.
+        canvas.drawCircle(
+          Offset(base.dx, base.dy - hBody - 0.5 * s * k),
+          0.45 * s * k,
+          Paint()..color = Color.fromRGBO(255, 211, 94, 0.35 + 0.45 * ((math.sin(time * 5) + 1) / 2)),
+        );
+        canvas.drawCircle(Offset(base.dx, base.dy - hBody - 0.5 * s * k), 0.2 * s * k, Paint()..color = pad.color);
+        break;
+      case InteractKind.repair:
+        // Scaffold frame around the unit.
+        for (final dx in [-w / 2 - 0.2 * s, w / 2 + 0.2 * s]) {
+          canvas.drawLine(Offset(base.dx + dx, base.dy), Offset(base.dx + dx, base.dy - hBody - 0.6 * s * k), outline);
+        }
+        canvas.drawLine(Offset(base.dx - w / 2 - 0.2 * s, base.dy - hBody - 0.6 * s * k),
+            Offset(base.dx + w / 2 + 0.2 * s, base.dy - hBody - 0.6 * s * k), outline);
+        break;
+      case InteractKind.collect:
+        // Stacked supply crates instead of a tall unit.
+        for (var i = 0; i < 2; i++) {
+          final cw = w * (1 - i * 0.3);
+          final r = Rect.fromLTWH(base.dx - cw / 2, base.dy - hBody * (i + 1) / 2, cw, hBody / 2);
+          canvas.drawRect(r, Paint()..color = const Color(0xFFB8BCC8));
+          canvas.drawRect(r, outline);
+        }
+        canvas.drawRect(Rect.fromLTWH(base.dx - 0.05 * s, base.dy - hBody - 1.2 * s * k, 0.1 * s, 1.2 * s * k),
+            Paint()..color = const Color(0xFFEEEEEE));
+        canvas.drawRect(Rect.fromLTWH(base.dx + 0.05 * s, base.dy - hBody - 1.15 * s * k, 0.8 * s * k, 0.5 * s * k),
+            Paint()..color = pad.color);
+        break;
+      case InteractKind.scan:
+        // Rotating radar dish above the unit.
+        final center = Offset(base.dx, base.dy - hBody - 0.4 * s * k);
+        final ang = time * 1.5;
+        canvas.drawLine(center,
+            Offset(center.dx + math.cos(ang) * 0.9 * s * k, center.dy - math.sin(ang).abs() * 0.5 * s * k), outline);
+        canvas.drawCircle(center, 0.22 * s * k, Paint()..color = pad.color);
+        break;
+      case InteractKind.explore:
+        // Survey flag and a small marker stone.
+        canvas.drawLine(Offset(base.dx, base.dy), Offset(base.dx, base.dy - hBody - 1.1 * s * k),
+            Paint()..color = const Color(0xFFEEEEEE)..strokeWidth = math.max(1.5, s * 0.06));
+        canvas.drawRect(Rect.fromLTWH(base.dx, base.dy - hBody - 1.1 * s * k, 1.1 * s * k, 0.65 * s * k),
+            Paint()..color = pad.color);
+        canvas.drawCircle(Offset(base.dx - w * 0.4, base.dy - 0.2 * s), 0.25 * s, Paint()..color = const Color(0xFF8A8E9E));
+        break;
     }
   }
 
@@ -846,7 +1084,7 @@ class LunarScenePainter extends CustomPainter {
       canvas.drawPath(shadow, Paint()..color = Colors.black.withAlpha(80));
     }
     paintAstronautSprite(canvas, feet, s,
-        moving: moving, time: time, altitude: altitude);
+        moving: moving, time: time, altitude: altitude, accent: suitAccent);
   }
 
   /// Arrow at the screen edge when the target is behind or out of view.
@@ -897,6 +1135,7 @@ void paintAstronautSprite(
   required bool moving,
   required double time,
   required double altitude,
+  Color accent = const Color(0xFF45E6FF),
 }) {
   canvas.save();
   canvas.translate(feet.dx, feet.dy);
@@ -965,11 +1204,11 @@ void paintAstronautSprite(
       ..strokeWidth = math.max(1.2, s * 0.03)
       ..color = const Color(0xFF7E8298),
   );
-  // Pack details: straps, vents and a status light.
+  // Pack details: straps in the chosen suit colour, vents and a status light.
   for (final x in [-0.2 * s, 0.2 * s]) {
     canvas.drawRect(
       Rect.fromLTWH(x - 0.045 * s, -1.62 * s, 0.09 * s, 0.9 * s),
-      Paint()..color = const Color(0xFF9A9FB4),
+      Paint()..color = Color.lerp(const Color(0xFF9A9FB4), accent, 0.55)!,
     );
   }
   for (var i = 0; i < 3; i++) {
@@ -978,8 +1217,7 @@ void paintAstronautSprite(
       Paint()..color = const Color(0xFF7E8298),
     );
   }
-  canvas.drawCircle(Offset(0.24 * s, -1.5 * s), 0.05 * s,
-      Paint()..color = const Color(0xFF40D080));
+  canvas.drawCircle(Offset(0.24 * s, -1.5 * s), 0.05 * s, Paint()..color = accent);
 
   // Neck ring + helmet dome.
   canvas.drawRRect(
@@ -1002,9 +1240,8 @@ void paintAstronautSprite(
         center: Offset(0, -2.0 * s), width: 0.5 * s, height: 0.2 * s),
     Paint()..color = const Color(0xFF14214A),
   );
-  // Helmet lamp.
-  canvas.drawCircle(
-      Offset(0, -2.24 * s), 0.05 * s, Paint()..color = const Color(0xFFFFD35E));
+  // Helmet lamp in the suit's accent colour.
+  canvas.drawCircle(Offset(0, -2.24 * s), 0.05 * s, Paint()..color = accent);
 
   // Jetpack flame while airborne.
   if (altitude > 0.2) {

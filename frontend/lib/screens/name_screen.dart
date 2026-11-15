@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 import '../services/game_controller.dart';
 import '../widgets/ui.dart';
-import 'home_screen.dart';
-import 'hub_screen.dart';
+import 'mission_map_screen.dart';
+import 'story_screen.dart';
 
 /// The only sign-in step: type a first name. No email, no password.
 class NameScreen extends StatefulWidget {
@@ -41,7 +41,7 @@ class _NameScreenState extends State<NameScreen> {
       await game.signInWithName(name);
       if (!mounted) return;
       Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
-        builder: (_) => game.hasActiveMission ? const HubScreen() : const AstronautScreen(),
+        builder: (_) => game.hasActiveMission ? const MissionMapScreen() : const StoryScreen(),
       ));
     } on ApiException catch (e) {
       if (!mounted) return;
