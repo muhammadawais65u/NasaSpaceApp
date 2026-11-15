@@ -46,7 +46,8 @@ class _JuniorAstronautAppState extends State<JuniorAstronautApp> {
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           brightness: Brightness.dark,
-          colorScheme: ColorScheme.fromSeed(seedColor: GameColors.blue, brightness: Brightness.dark),
+          colorScheme: ColorScheme.fromSeed(
+              seedColor: GameColors.blue, brightness: Brightness.dark),
           useMaterial3: true,
         ),
         home: const AppRoot(),
@@ -74,15 +75,22 @@ class AppRoot extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.wifi_off_rounded, color: GameColors.yellow, size: 48),
+                  const Icon(Icons.wifi_off_rounded,
+                      color: GameColors.yellow, size: 48),
                   const SizedBox(height: 10),
                   Text(
                     game.errorMessage ?? 'Something went wrong.',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 16),
-                  GameButton(label: 'Try Again', icon: Icons.refresh, onPressed: game.start),
+                  GameButton(
+                      label: 'Try Again',
+                      icon: Icons.refresh,
+                      onPressed: game.start),
                 ],
               ),
             ),
@@ -98,7 +106,10 @@ class AppRoot extends StatelessWidget {
                 SizedBox(height: 16),
                 Text(
                   'Mission Control is getting ready...',
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700),
                 ),
               ],
             ),
