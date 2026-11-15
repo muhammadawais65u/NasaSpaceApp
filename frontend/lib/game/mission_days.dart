@@ -34,6 +34,52 @@ extension InteractKindX on InteractKind {
         InteractKind.activate: Icons.power_settings_new_rounded,
         InteractKind.build: Icons.construction_rounded,
       }[this]!;
+
+  /// Colony resources this action uses up (positive numbers = consumed).
+  Map<String, int> get cost => const {
+        InteractKind.explore: {'oxygen_level': 3, 'food_level': 1},
+        InteractKind.collect: {'oxygen_level': 2, 'food_level': 2},
+        InteractKind.scan: {'power_level': 3},
+        InteractKind.repair: {'power_level': 6, 'oxygen_level': 3},
+        InteractKind.install: {'power_level': 6, 'oxygen_level': 2},
+        InteractKind.activate: {'power_level': 5},
+        InteractKind.build: {
+          'oxygen_level': 5,
+          'power_level': 8,
+          'water_level': 5,
+          'food_level': 3,
+          'radiation_protection_level': 2,
+        },
+      }[this]!;
+
+  /// Why this action uses those resources, shown under the cost chips.
+  String get costReason => const {
+        InteractKind.explore: 'Walking far burns suit oxygen and energy snacks.',
+        InteractKind.collect: 'Digging and hauling rocks uses oxygen and food energy.',
+        InteractKind.scan: 'The scanner runs on suit battery power.',
+        InteractKind.repair: 'Welding tools draw power and the hard work uses oxygen.',
+        InteractKind.install: 'Bolting in equipment uses power and suit oxygen.',
+        InteractKind.activate: 'Switching a system on draws colony power.',
+        InteractKind.build: 'Construction needs tools (power), crew air (oxygen), water, food and shield material.',
+      }[this]!;
+
+  /// What the action teaches the player, shown in a pop-up after it finishes.
+  String get lesson => const {
+        InteractKind.explore:
+            'Astronauts explore to map the ground first. They look for flat, safe spots away from deep craters before anyone builds. A good spot keeps the whole colony safe!',
+        InteractKind.collect:
+            'Nothing is wasted on the Moon! Collected rocks, ice and parts all get reused - ice becomes water and oxygen, and spare parts fix broken machines.',
+        InteractKind.scan:
+            'Scanning measures what you cannot see - radiation above ground and ice below it. Astronauts always scan before they dig, so nobody walks into danger.',
+        InteractKind.repair:
+            'Small breaks become big disasters fast in space. A tiny hole can drain all the oxygen out! Quick repairs keep the crew breathing and the colony alive.',
+        InteractKind.install:
+            'Installing connects new equipment to the colony - cables carry power, pipes carry water, and computers tell the machine what to do.',
+        InteractKind.activate:
+            'Switching a system on brings it to life! Solar panels start making energy, shields start blocking radiation, and filters start cleaning the air.',
+        InteractKind.build:
+            'Every structure you build keeps the crew alive longer - a habitat gives shelter, a greenhouse gives food, and a workshop gives tools. Building is how a camp becomes a colony!',
+      }[this]!;
 }
 
 /// Story, environment and interaction flavour for one mission day.

@@ -67,7 +67,7 @@ class _AstronautSelectScreenState extends State<AstronautSelectScreen> {
                     // Preview.
                     AstronautAvatar(id: selected, size: 96, ring: accent),
                     const SizedBox(height: 8),
-                    Text(AstronautAvatar.displayName(selected).toUpperCase(),
+                    Text((game.playerName.isEmpty ? AstronautAvatar.displayName(selected) : game.playerName).toUpperCase(),
                         style: TextStyle(color: accent, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 2)),
                     Text(AstronautSelectScreen.bios[selected] ?? '',
                         style: const TextStyle(color: Color(0xFFB9C6F2), fontSize: 14)),
@@ -146,8 +146,11 @@ class _SuitCard extends StatelessWidget {
                       decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
                     ),
                     const SizedBox(width: 6),
-                    Text(AstronautAvatar.displayName(id),
-                        style: TextStyle(color: selected ? accent : Colors.white, fontSize: 19, fontWeight: FontWeight.w900)),
+                    Builder(builder: (context) {
+                      final name = GameScope.of(context).playerName;
+                      return Text(name.isEmpty ? AstronautAvatar.displayName(id) : name,
+                          style: TextStyle(color: selected ? accent : Colors.white, fontSize: 19, fontWeight: FontWeight.w900));
+                    }),
                   ],
                 ),
               ),

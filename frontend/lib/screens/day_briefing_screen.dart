@@ -110,6 +110,8 @@ class DayBriefingScreen extends StatelessWidget {
                             ],
                           ),
                         ),
+                        const SizedBox(height: 10),
+                        const _NasaReport(),
                         const SizedBox(height: 14),
                         GameButton(
                           label: 'Start Day ${info.day}',
@@ -133,6 +135,53 @@ class DayBriefingScreen extends StatelessWidget {
   }
 }
 
+/// The real NASA space-weather report behind this mission's alert, when we
+/// have one. Never invent data: no weather loaded -> no panel.
+class _NasaReport extends StatelessWidget {
+  const _NasaReport();
+
+  @override
+  Widget build(BuildContext context) {
+    final game = GameScope.of(context);
+    final w = game.weather;
+    if (w == null) return const SizedBox.shrink();
+    final e = game.scenarioEvent;
+    final level = (game.mission?.alertLevel ?? w.alertLevel).toUpperCase();
+    final color =
+        level == 'STORM' ? GameColors.red : (level == 'WATCH' ? GameColors.yellow : const Color(0xFF45E6FF));
+    return GlassPanel(
+      borderColor: color,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.satellite_alt_rounded, color: color, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  e != null
+                      ? 'NASA really saw this: ${e.title}'
+                          '${e.date == null ? '' : ' on ${formatDate(e.date!)}'}. Game alert: $level.'
+                      : level == 'CALM'
+                          ? 'Space-weather reports show a quiet Sun right now. Game alert: CALM.'
+                          : 'Game alert: $level - based on space-weather data.',
+                  style: const TextStyle(color: Colors.white, fontSize: 13.5, height: 1.35),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          DataBadge(status: w.dataStatus, source: '', retrievedAt: w.retrievedAt),
+        ],
+      ),
+    );
+  }
+}
+
 class _AstronautSide extends StatelessWidget {
   const _AstronautSide({required this.info, required this.accent});
 
@@ -148,7 +197,7 @@ class _AstronautSide extends StatelessWidget {
         children: [
           AstronautAvatar(id: game.astronaut, size: 100, ring: accent),
           const SizedBox(height: 8),
-          Text('Astronaut ${AstronautAvatar.displayName(game.astronaut)}',
+          Text('Astronaut ${game.playerName.isEmpty ? AstronautAvatar.displayName(game.astronaut) : game.playerName}',
               style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
           const SizedBox(height: 10),
           Padding(

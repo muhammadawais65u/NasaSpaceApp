@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../services/game_controller.dart';
 import '../widgets/ui.dart';
 import 'home_screen.dart';
+import 'learning_screen.dart';
 import 'mission_map_screen.dart';
 import 'name_screen.dart';
 import 'settings_screen.dart';
@@ -107,6 +108,13 @@ class MenuScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 10),
                                 GameButton(
+                                  label: 'NASA Learning',
+                                  icon: Icons.satellite_alt_rounded,
+                                  color: GameColors.blue,
+                                  onPressed: () => _push(context, const LearningScreen()),
+                                ),
+                                const SizedBox(height: 10),
+                                GameButton(
                                   label: 'Settings',
                                   icon: Icons.settings,
                                   color: GameColors.blue,
@@ -149,7 +157,7 @@ class MenuScreen extends StatelessWidget {
                           AstronautAvatar(id: game.astronaut, size: 110, ring: const Color(0xFF45E6FF)),
                           const SizedBox(height: 8),
                           Text(
-                            'Astronaut ${AstronautAvatar.displayName(game.astronaut)}',
+                            'Astronaut ${game.playerName.isEmpty ? AstronautAvatar.displayName(game.astronaut) : game.playerName}',
                             style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800),
                           ),
                         ],

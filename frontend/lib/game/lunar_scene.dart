@@ -120,6 +120,7 @@ class LunarScenePainter extends CustomPainter {
     required this.particles,
     this.target,
     this.pads = const [],
+    this.heritage = const [],
     this.activePad = -1,
     this.buildingPad = -1,
     this.buildProgress = 0,
@@ -150,6 +151,10 @@ class LunarScenePainter extends CustomPainter {
   /// Build pads (one per decision option), the pad you stand on, and the
   /// pad that is currently being built (0..1 progress).
   final List<BuildPad> pads;
+
+  /// Structures finished on earlier mission days: drawn already built so the
+  /// colony grows across the whole adventure.
+  final List<BuildPad> heritage;
   final int activePad;
   final int buildingPad;
   final double buildProgress;
@@ -776,13 +781,24 @@ class LunarScenePainter extends CustomPainter {
   }
 
   /// The build pads: glowing discs on the ground, one per option. The pad
-  /// being built grows into a little habitat.
+  /// being built grows into a little habitat. Heritage pads are finished
+  /// builds from earlier days, drawn already done.
   void _drawPads(Canvas canvas) {
-    final order = [for (var i = 0; i < pads.length && i < visibleCount; i++) i]
-      ..sort((a, b) => _depth(pads[b].pos.dx, 0, pads[b].pos.dy)
-          .compareTo(_depth(pads[a].pos.dx, 0, pads[a].pos.dy)));
-    for (final i in order) {
-      final pad = pads[i];
+    final items = <({BuildPad pad, bool active, bool done, bool building, bool old})>[
+      for (final p in heritage)
+        (pad: p, active: false, done: true, building: true, old: true),
+      for (var i = 0; i < pads.length && i < visibleCount; i++)
+        (
+          pad: pads[i],
+          active: i == activePad,
+          done: i < builtCount,
+          building: i == buildingPad || i < builtCount,
+          old: false,
+        ),
+    ]..sort((a, b) => _depth(b.pad.pos.dx, 0, b.pad.pos.dy)
+        .compareTo(_depth(a.pad.pos.dx, 0, a.pad.pos.dy)));
+    for (final item in items) {
+      final pad = item.pad;
       final p = pad.pos;
       final y = scenery.terrainAt(p.dx, p.dy);
       final base = _proj(p.dx, y, p.dy);
@@ -790,20 +806,22 @@ class LunarScenePainter extends CustomPainter {
       final z = _depth(p.dx, 0, p.dy);
       if (z < 1) continue;
       final s = _focal / z;
-      final active = i == activePad;
-      final done = i < builtCount;
-      final building = i == buildingPad || done;
+      final active = item.active;
+      final done = item.done;
+      final building = item.building;
 
       final disc = _projectGroundRing(p, 2.4, 18);
       if (disc != null) {
         canvas.drawPath(disc,
-            Paint()..color = pad.color.withAlpha(active || building ? 95 : 45));
+            Paint()
+              ..color = pad.color
+                  .withAlpha(item.old ? 40 : (active || building ? 95 : 45)));
         canvas.drawPath(
           disc,
           Paint()
             ..style = PaintingStyle.stroke
             ..strokeWidth = active ? 4 : 2.5
-            ..color = pad.color.withAlpha(active ? 255 : 190),
+            ..color = pad.color.withAlpha(active ? 255 : (item.old ? 110 : 190)),
         );
       }
 

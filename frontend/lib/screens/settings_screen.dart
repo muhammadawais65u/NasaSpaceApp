@@ -102,9 +102,8 @@ class SettingsScreen extends StatelessWidget {
                         _Heading('Where the science comes from'),
                         SizedBox(height: 6),
                         Text(
-                          'Space weather: NASA DONKI (Space Weather Database Of Notifications, Knowledge, '
-                          'Information), from api.nasa.gov.\n'
-                          'Space biology studies: NASA Open Science Data Repository (OSDR), osdr.nasa.gov.\n\n'
+                          'Space weather: Space Weather Database Of Notifications, Knowledge, Information.\n'
+                          'Space biology studies: open space-science research data.\n\n'
                           'The resource numbers, points and the calm / watch / storm alert are simplified '
                           'game rules. They are not NASA measurements.\n\n'
                           'This is a student project for the NASA Space Apps Challenge. '

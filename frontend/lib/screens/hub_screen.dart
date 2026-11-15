@@ -273,11 +273,11 @@ class _AlertBanner extends StatelessWidget {
       final when = e.date == null ? '' : ' on ${formatDate(e.date!)}';
       source = 'Real NASA report: ${e.title}$when.';
     } else if (mission.scenarioEventId != null) {
-      source = 'Based on a real NASA DONKI space-weather report.';
+      source = 'Based on a real space-weather report.';
     } else if (level != 'calm') {
       source = 'Demo alert - not based on NASA data.';
     } else {
-      source = 'NASA DONKI shows no big solar events in the last 7 days (or no data).';
+      source = 'Space-weather reports show no big solar events in the last 7 days (or no data).';
     }
 
     final w = weather;
@@ -295,7 +295,7 @@ class _AlertBanner extends StatelessWidget {
               children: [
                 Text(game, style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w800)),
                 Text(source, style: const TextStyle(color: Colors.white, fontSize: 13)),
-                if (w != null) DataBadge(status: w.dataStatus, source: 'NASA DONKI', retrievedAt: w.retrievedAt),
+                if (w != null) DataBadge(status: w.dataStatus, source: 'Space weather', retrievedAt: w.retrievedAt),
               ],
             ),
           ),

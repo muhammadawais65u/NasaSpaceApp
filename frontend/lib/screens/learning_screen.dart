@@ -201,7 +201,7 @@ class _LearningScreenState extends State<LearningScreen> {
         const Text('What the Sun did in the last 7 days',
             style: TextStyle(color: GameColors.yellow, fontSize: 19, fontWeight: FontWeight.w900)),
         const SizedBox(height: 4),
-        DataBadge(status: w.dataStatus, source: 'NASA DONKI', retrievedAt: w.retrievedAt),
+        DataBadge(status: w.dataStatus, source: 'Space weather', retrievedAt: w.retrievedAt),
         const SizedBox(height: 6),
         Text(
           'These are real reports from NASA\'s space weather database. '
@@ -215,7 +215,7 @@ class _LearningScreenState extends State<LearningScreen> {
               style: TextStyle(color: GameColors.textDim, fontSize: 15)),
         for (final e in events) _EventRow(event: e),
         const SizedBox(height: 8),
-        const Text('Source: NASA DONKI (Space Weather Database Of Notifications, Knowledge, Information).',
+        const Text('Source: Space Weather Database Of Notifications, Knowledge, Information.',
             style: TextStyle(color: GameColors.textDim, fontSize: 12)),
       ],
     );
@@ -257,7 +257,7 @@ class _LearningScreenState extends State<LearningScreen> {
               }
               return ListView(
                 children: [
-                  DataBadge(status: data.dataStatus, source: 'NASA OSDR'),
+                  DataBadge(status: data.dataStatus, source: 'Research studies'),
                   if (data.totalMatches != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
@@ -266,7 +266,7 @@ class _LearningScreenState extends State<LearningScreen> {
                     ),
                   const SizedBox(height: 6),
                   for (final s in data.studies) _StudyCard(study: s),
-                  const Text('Source: NASA Open Science Data Repository (OSDR). Written for scientists, '
+                  const Text('Real space-biology research, written for scientists - '
                       'so ask a grown-up to help you read them!',
                       style: TextStyle(color: GameColors.textDim, fontSize: 12)),
                 ],
@@ -385,9 +385,6 @@ class _StudyCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: GameColors.textDim, fontSize: 13, height: 1.25)),
             ),
-          const SizedBox(height: 4),
-          SelectableText('${study.accession}  ${study.link}',
-              style: const TextStyle(color: GameColors.panelBorder, fontSize: 12)),
         ],
       ),
     );

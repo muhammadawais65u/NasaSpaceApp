@@ -37,15 +37,6 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     Color(0xFF8E5BFF),
   ];
 
-  /// Resources used up by every objective build.
-  static const Map<String, int> _buildCost = {
-    'oxygen_level': 5,
-    'power_level': 8,
-    'water_level': 5,
-    'food_level': 3,
-    'radiation_protection_level': 2,
-  };
-
   late final AnimationController _anim;
   late final LunarScenery _scenery;
   late final List<BuildPad> _pads;
@@ -106,6 +97,22 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
       const BuildPad(Offset(0, -24), 'Colony core', Color(0xFFFFB347)),
     ];
     _say('Walk to the glowing pad and press E to build it. Every build uses resources.', 7);
+    // If NASA DONKI fed this mission a real space-weather event, Mission
+    // Control opens the day by telling the astronaut about it.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final game = GameScope.of(context);
+      final e = game.scenarioEvent;
+      if (e == null) return;
+      final when = e.date == null ? '' : ' on ${formatDate(e.date!)}';
+      final storm = game.mission?.alertLevel == 'storm';
+      _say(
+        'NASA really saw this: ${e.title}$when.'
+        "${storm ? ' Solar storm - your shield drains faster!' : ''} "
+        'Now walk to the glowing pad and press E.',
+        8,
+      );
+    });
     _anim = AnimationController(vsync: this, duration: const Duration(seconds: 1))
       ..addListener(_tick)
       ..repeat();
@@ -250,10 +257,12 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   void _finishStep() {
     final built = _objectives[_step];
+    final kind = _theme.kindOf(_step);
+    final kindCost = kind.cost;
     _step++;
     _buildT = 0;
     _near = -1;
-    for (final e in _buildCost.entries) {
+    for (final e in kindCost.entries) {
       _spent[e.key] = (_spent[e.key] ?? 0) + e.value;
     }
     _phase = _Phase.explore;
@@ -262,6 +271,62 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
     } else {
       _say('Built: $built. Next objective is lit up.', 4);
     }
+    // Each finished job teaches the astronaut something about the work.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showLesson(kind, built, kindCost);
+    });
+  }
+
+  /// Pop-up after each objective: why astronauts do this job and how it
+  /// helps the crew - plus the resources it just used.
+  void _showLesson(InteractKind kind, String built, Map<String, int> cost) {
+    final accent = _theme.accent;
+    showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: GlassPanel(
+            borderColor: accent,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 26,
+                  backgroundColor: accent.withAlpha(50),
+                  child: Icon(kind.icon, color: accent, size: 30),
+                ),
+                const SizedBox(height: 8),
+                Text('${kind.verb} done!',
+                    style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+                Text(built,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: accent, fontSize: 13, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 10),
+                Text('WHY DO ASTRONAUTS ${kind.verb.toUpperCase()}?',
+                    style: const TextStyle(
+                        color: GameColors.textDim, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                const SizedBox(height: 4),
+                Text(kind.lesson,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white, fontSize: 13.5, height: 1.4)),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 5,
+                  runSpacing: 4,
+                  alignment: WrapAlignment.center,
+                  children: [for (final e in cost.entries) _costChip(e.key, -e.value)],
+                ),
+                const SizedBox(height: 12),
+                GameButton(label: 'Got it!', icon: Icons.check_rounded, onPressed: () => Navigator.of(context).pop()),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   /// The building is finished: tell Mission Control, then show what it cost.
@@ -375,6 +440,7 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                   particles: _particles,
                   target: guide,
                   pads: _pads,
+                  heritage: _heritagePads(game),
                   activePad: _near,
                   buildingPad: (_phase == _Phase.building || _phase == _Phase.busy) ? (_final ? n : _step) : -1,
                   buildProgress: _buildT,
@@ -520,10 +586,11 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
 
   Widget _resourcePanel(Map<String, int> levels, DecisionOption? option) {
     // While building, the bars slide toward the cost of the build: the
-    // colony core uses the chosen option's effects, an objective uses the
-    // flat _buildCost.
+    // colony core uses the reported option's effects, an objective uses the
+    // cost of its interaction kind (scan costs power, repairs cost tools...).
     final k = _buildT.clamp(0.0, 1.0);
     final buildingStep = _phase == _Phase.building && !_final;
+    final stepCost = buildingStep ? _theme.kindOf(_step).cost : const <String, int>{};
     return _panelBox(
       width: 230,
       child: Column(
@@ -538,9 +605,9 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
               ResourceMeta.of(key).label.toUpperCase(),
               ((levels[key] ?? 0) - (_spent[key] ?? 0)) +
                   (option?.effects[key] ?? 0) * k -
-                  (_buildCost[key] ?? 0) * (buildingStep ? k : 0),
+                  (stepCost[key] ?? 0) * (buildingStep ? k : 0),
               ResourceMeta.of(key).color,
-              option?.effects[key] ?? (buildingStep ? -(_buildCost[key] ?? 0) : 0),
+              option?.effects[key] ?? -(stepCost[key] ?? 0),
             ),
         ],
       ),
@@ -655,12 +722,90 @@ class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateM
                 _phase == _Phase.busy ? 'Reporting to Mission Control...' : _currentKind.doing,
                 style: const TextStyle(color: GameColors.textDim, fontSize: 12, fontWeight: FontWeight.w700),
               ),
-            ] else
+            ] else ...[
+              _costPreview(),
+              const SizedBox(height: 8),
               GameButton(label: '${_currentKind.verb} (E)', icon: _currentKind.icon, onPressed: _build),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  /// Before the player commits, show exactly which resources the action will
+  /// use and why - scan costs power, repairs cost tools, and so on.
+  Widget _costPreview() {
+    if (_final || _step >= _objectives.length) {
+      final fx = widget.info.options.first.effects;
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('MISSION CONTROL REPORT USES:',
+              style: TextStyle(
+                  color: GameColors.textDim, fontSize: 9.5, fontWeight: FontWeight.w900, letterSpacing: 1.1)),
+          const SizedBox(height: 5),
+          Wrap(
+            spacing: 5,
+            runSpacing: 4,
+            alignment: WrapAlignment.center,
+            children: [for (final e in fx.entries) _costChip(e.key, e.value)],
+          ),
+        ],
+      );
+    }
+    final kind = _theme.kindOf(_step);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('${kind.verb.toUpperCase()} USES:',
+            style: const TextStyle(
+                color: GameColors.textDim, fontSize: 9.5, fontWeight: FontWeight.w900, letterSpacing: 1.1)),
+        const SizedBox(height: 5),
+        Wrap(
+          spacing: 5,
+          runSpacing: 4,
+          alignment: WrapAlignment.center,
+          children: [for (final e in kind.cost.entries) _costChip(e.key, -e.value)],
+        ),
+        const SizedBox(height: 5),
+        Text(kind.costReason,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: GameColors.textDim, fontSize: 11, fontWeight: FontWeight.w600, height: 1.25)),
+      ],
+    );
+  }
+
+  Widget _costChip(String key, int value) {
+    final meta = ResourceMeta.of(key);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: meta.color.withAlpha(45),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: meta.color.withAlpha(170)),
+      ),
+      child: Text('${meta.label} ${value > 0 ? '+' : ''}$value',
+          style: TextStyle(color: meta.color, fontSize: 10.5, fontWeight: FontWeight.w900)),
+    );
+  }
+
+  /// Everything built on earlier days stays standing: old objectives become
+  /// finished structures spread around today's build site.
+  List<BuildPad> _heritagePads(GameController game) {
+    final list = <BuildPad>[];
+    for (var d = 1; d < widget.info.day; d++) {
+      final info = game.missionInfo(d);
+      if (info == null) continue;
+      final theme = themeForDay(d);
+      for (var i = 0; i < info.objectives.length; i++) {
+        final a = (d * 3.0 + i) * 2.3999632; // golden-angle spread
+        final r = 30.0 + ((d * 2 + i) % 3) * 4.0;
+        list.add(BuildPad(Offset(math.sin(a) * r, math.cos(a) * r), info.objectives[i], theme.accent,
+            kind: theme.kindOf(i)));
+      }
+    }
+    return list;
   }
 
   Widget _buildBottom(bool exploring) {

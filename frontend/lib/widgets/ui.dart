@@ -492,7 +492,7 @@ class DataBadge extends StatelessWidget {
     Color color;
     switch (status) {
       case 'live':
-        text = 'Live from $source';
+        text = '';
         color = GameColors.green;
         break;
       case 'cached':
@@ -508,13 +508,15 @@ class DataBadge extends StatelessWidget {
         color = GameColors.textDim;
     }
     final at = retrievedAt;
-    if (at != null && status != 'unavailable') text = '$text - ${formatDate(at)}';
+    if (text.isNotEmpty && at != null) text = '$text - ${formatDate(at)}';
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(Icons.circle, size: 10, color: color),
-        const SizedBox(width: 6),
-        Flexible(child: Text(text, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700))),
+        if (text.isNotEmpty) ...[
+          const SizedBox(width: 6),
+          Flexible(child: Text(text, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700))),
+        ],
       ],
     );
   }
